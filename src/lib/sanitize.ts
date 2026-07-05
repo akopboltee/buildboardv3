@@ -74,7 +74,7 @@ export function sanitizeComment(content: string): { valid: boolean; value: strin
 }
 
 /**
- * Validate display name: 3-20 chars, letters, numbers, underscores only
+ * Validate display name: 3-20 chars, letters, numbers, underscores, and spaces
  */
 export function validateDisplayName(name: string): { valid: boolean; error?: string } {
   const trimmed = name.trim()
@@ -91,8 +91,8 @@ export function validateDisplayName(name: string): { valid: boolean; error?: str
     return { valid: false, error: 'Display name must be 20 characters or less' }
   }
 
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
-    return { valid: false, error: 'Display name can only contain letters, numbers, and underscores' }
+  if (!/^[a-zA-Z0-9_ ]+$/.test(trimmed)) {
+    return { valid: false, error: 'Display name can only contain letters, numbers, underscores, and spaces' }
   }
 
   return { valid: true }

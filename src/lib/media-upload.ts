@@ -157,7 +157,11 @@ export async function uploadMedia(
 
     const ext = file.name.split('.').pop() || 'bin'
     const bucket = folder === 'avatars' ? AVATAR_BUCKET : MEDIA_BUCKET
-    const fileName = `${folder}/${userId}/${crypto.randomUUID()}.${ext}`
+    // For avatars bucket, path must be avatars/{user_id}/filename
+    // For media bucket, path must be posts/{user_id}/filename
+    const fileName = folder === 'avatars'
+      ? `avatars/${userId}/${crypto.randomUUID()}.${ext}`
+      : `posts/${userId}/${crypto.randomUUID()}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
@@ -199,7 +203,7 @@ export async function getSignedUrl(path: string, folder: 'posts' | 'avatars' = '
   const bucket = folder === 'avatars' ? AVATAR_BUCKET : MEDIA_BUCKET
   const { data } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(path, 3600)
+    .createSignedUrl(path, 86400)
 
   return data?.signedUrl || null
 }

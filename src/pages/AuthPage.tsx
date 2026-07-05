@@ -1,11 +1,20 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { ArrowLeft, Eye, EyeOff, Loader as Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
@@ -45,6 +54,15 @@ export function AuthPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [passwordStrength, setPasswordStrength] = useState<"weak" | "medium" | "strong">("weak")
+
+  // Moderation modal
+  const [moderationModalOpen, setModerationModalOpen] = useState(false)
+
+  // Forgot password
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
 
   useEffect(() => {
     if (user) navigate("/")
@@ -186,10 +204,16 @@ export function AuthPage() {
       return
     }
 
+    // Check username moderation
+    const sanitizedName = sanitizeText(signUpName.trim())
+    const nameAllowed = await checkUsernameModeration(sanitizedName)
+    if (!nameAllowed) {
+      setModerationModalOpen(true)
+      return
+    }
+
     setSignUpLoading(true)
     setSignUpError(null)
-
-    const sanitizedName = sanitizeText(signUpName.trim())
 
     const { error } = await supabase.auth.signUp({
       email: signUpEmail.trim().toLowerCase(),
@@ -212,6 +236,46 @@ export function AuthPage() {
 
     setSignUpSuccess(true)
     setSignUpLoading(false)
+  }
+
+  async function checkUsernameModeration(name: string): Promise<boolean> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/moderate-content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ content: name }),
+        }
+      )
+      const result = await res.json()
+      return result.allowed !== false
+    } catch {
+      return true
+    }
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setForgotPasswordLoading(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      forgotPasswordEmail.trim().toLowerCase(),
+      {
+        redirectTo: `${window.location.origin}/reset-password`,
+      }
+    )
+
+    setForgotPasswordLoading(false)
+
+    if (!error) {
+      setForgotPasswordSent(true)
+    }
   }
 
   // Check if sign up form is valid
@@ -298,6 +362,17 @@ export function AuthPage() {
               >
                 {signInLoading ? "Signing in..." : "Sign in"}
               </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotPasswordOpen(true)
+                  setForgotPasswordSent(false)
+                  setForgotPasswordEmail(signInEmail)
+                }}
+                className="w-full text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Forgot password? Click here
+              </button>
             </form>
           </TabsContent>
 
@@ -330,7 +405,7 @@ export function AuthPage() {
                   <Input
                     id="signup-name"
                     type="text"
-                    placeholder="Letters, numbers, underscores only"
+                    placeholder="Letters, numbers, underscores, spaces"
                     value={signUpName}
                     onChange={(e) => setSignUpName(e.target.value)}
                     className={cn(
@@ -494,6 +569,74 @@ export function AuthPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Moderation Modal */}
+      <AlertDialog open={moderationModalOpen} onOpenChange={setModerationModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Inappropriate Username</AlertDialogTitle>
+            <AlertDialogDescription>
+              This username contains inappropriate content. Please make a new appropriate username.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setModerationModalOpen(false)}>
+              Okay, Got it!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Forgot Password Modal */}
+      <AlertDialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Password</AlertDialogTitle>
+            <AlertDialogDescription>
+              {forgotPasswordSent
+                ? `Password reset email sent to ${forgotPasswordEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3")}. Check your inbox for the reset link.`
+                : "Enter your email address and we'll send you a password reset link."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {!forgotPasswordSent && (
+            <form onSubmit={handleForgotPassword} className="mt-2">
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={forgotPasswordEmail}
+                onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                className="h-9 text-sm"
+                required
+              />
+              <AlertDialogFooter className="mt-4">
+                <AlertDialogAction asChild>
+                  <Button
+                    type="submit"
+                    className="h-9 text-sm"
+                    disabled={forgotPasswordLoading}
+                  >
+                    {forgotPasswordLoading ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin mr-2" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Send Reset Link"
+                    )}
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </form>
+          )}
+          {forgotPasswordSent && (
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setForgotPasswordOpen(false)}>
+                Done
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

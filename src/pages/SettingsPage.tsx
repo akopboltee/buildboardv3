@@ -27,7 +27,6 @@ import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import {
   validateDisplayName,
-  validateEmail,
   validatePassword,
   sanitizeBio,
   sanitizeText,
@@ -98,10 +97,6 @@ export function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState("")
 
-  // Email change state
-  const [newEmail, setNewEmail] = useState("")
-  const [emailChangeOpen, setEmailChangeOpen] = useState(false)
-
   // Privacy state
   const [profilePublic, setProfilePublic] = useState(true)
   const [showRealName, setShowRealName] = useState(true)
@@ -114,29 +109,25 @@ export function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(false)
   const [weeklyDigest, setWeeklyDigest] = useState(false)
 
-  // Loading states
-  const [loadingProfile, setLoadingProfile] = useState(true)
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [savingPassword, setSavingPassword] = useState(false)
-  const [deletingAccount, setDeletingAccount] = useState(false)
-  const [savingEmail, setSavingEmail] = useState(false)
-
   // Success/error states
   const [profileSuccess, setProfileSuccess] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
-  const [emailSuccess, setEmailSuccess] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Validation states
   const [displayNameError, setDisplayNameError] = useState<string | null>(null)
   const [bioError, setBioError] = useState<string | null>(null)
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null)
-  const [newEmailError, setNewEmailError] = useState<string | null>(null)
   const [passwordStrength, setPasswordStrength] = useState<"weak" | "medium" | "strong">("weak")
   const [avatarError, setAvatarError] = useState<string | null>(null)
+
+  // Loading states
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile")
@@ -230,15 +221,6 @@ export function SettingsPage() {
       setPasswordStrength("weak")
     }
   }, [newPassword])
-
-  useEffect(() => {
-    if (newEmail) {
-      const result = validateEmail(newEmail)
-      setNewEmailError(result.valid ? null : (result.error ?? null))
-    } else {
-      setNewEmailError(null)
-    }
-  }, [newEmail])
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -385,46 +367,6 @@ export function SettingsPage() {
     }
 
     setSavingPassword(false)
-  }
-
-  async function handleChangeEmail(e: React.FormEvent) {
-    e.preventDefault()
-    if (!user || newEmailError) return
-
-    setSavingEmail(true)
-    setEmailError(null)
-    setEmailSuccess(false)
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-actions?action=change-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-            "Apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ newEmail }),
-        }
-      )
-
-      const data = await res.json()
-
-      if (!res.ok || data.error) {
-        setEmailError(data.error || "Failed to change email")
-      } else {
-        setEmailSuccess(true)
-        setNewEmail("")
-        setEmailChangeOpen(false)
-        setTimeout(() => setEmailSuccess(false), 5000)
-      }
-    } catch {
-      setEmailError("Network error. Please try again.")
-    }
-
-    setSavingEmail(false)
   }
 
   async function handleDeleteAccount() {
@@ -765,18 +707,7 @@ export function SettingsPage() {
                   {/* Email */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Email address</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-foreground">{user.email}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setEmailChangeOpen(true)}
-                      >
-                        Change
-                      </Button>
-                    </div>
+                    <p className="text-sm text-foreground">{user.email}</p>
                   </div>
 
                   {profileError && <p className="text-xs text-destructive">{profileError}</p>}
@@ -803,40 +734,6 @@ export function SettingsPage() {
                     )}
                   </Button>
                 </form>
-
-                {/* Email change dialog */}
-                <AlertDialog open={emailChangeOpen} onOpenChange={setEmailChangeOpen}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Change email address</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Enter your new email address. You'll need to verify both your current and new email.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <form onSubmit={handleChangeEmail}>
-                      <div className="space-y-3 py-4">
-                        <Input
-                          type="email"
-                          placeholder="New email address"
-                          value={newEmail}
-                          onChange={(e) => setNewEmail(e.target.value)}
-                          className={cn("h-9 text-sm", newEmailError && "border-destructive")}
-                        />
-                        {newEmailError && <p className="text-xs text-destructive">{newEmailError}</p>}
-                        {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-                        {emailSuccess && (
-                          <p className="text-xs text-green-500">Verification emails sent. Check both inboxes.</p>
-                        )}
-                      </div>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction type="submit" disabled={savingEmail || !!newEmailError || !newEmail}>
-                          {savingEmail ? "Sending..." : "Send verification"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </form>
-                  </AlertDialogContent>
-                </AlertDialog>
               </section>
             )}
 

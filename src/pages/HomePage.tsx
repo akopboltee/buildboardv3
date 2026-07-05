@@ -21,9 +21,9 @@ function useFakeStats() {
       }
     }
     return {
-      builders: 1247 + Math.floor(Math.random() * 50),
-      updates: 8291 + Math.floor(Math.random() * 200),
-      projects: 247 + Math.floor(Math.random() * 20),
+      builders: 87 + Math.floor(Math.random() * 15),
+      updates: 156 + Math.floor(Math.random() * 25),
+      projects: 42 + Math.floor(Math.random() * 12),
     }
   })
 

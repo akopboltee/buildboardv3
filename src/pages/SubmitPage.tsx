@@ -5,6 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { supabase, TAGS, type Tag } from "@/lib/supabase"
@@ -30,6 +39,7 @@ export function SubmitPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mediaError, setMediaError] = useState<string | null>(null)
+  const [moderationModalOpen, setModerationModalOpen] = useState(false)
 
   // Validation states
   const [titleError, setTitleError] = useState<string | null>(null)
@@ -142,7 +152,7 @@ export function SubmitPage() {
     const modResult = await modRes.json()
 
     if (!modResult.allowed) {
-      setError(modResult.reason || "Content violates our guidelines")
+      setModerationModalOpen(true)
       setSubmitting(false)
       return
     }
@@ -174,7 +184,8 @@ export function SubmitPage() {
         .eq("user_id", user.id)
         .maybeSingle()
 
-      showAnonymous = profile?.default_anonymous || !profile?.show_real_name
+      // Only use anonymous if profile exists and explicitly set to anonymous
+      showAnonymous = profile?.default_anonymous === true
     }
 
     const { data, error: insertError } = await supabase
@@ -241,7 +252,7 @@ export function SubmitPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="title" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Label htmlFor="title" className="text-xs font-medium text-foreground uppercase tracking-wider">
                 What are you working on? <span className="text-destructive">*</span>
               </Label>
               <span className={`text-xs tabular-nums transition-colors ${title.length >= 90 ? "text-destructive" : "text-muted-foreground/40"}`}>
@@ -265,7 +276,7 @@ export function SubmitPage() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="description" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Label htmlFor="description" className="text-xs font-medium text-foreground uppercase tracking-wider">
                 More detail (optional)
               </Label>
               <span className={`text-xs tabular-nums transition-colors ${description.length >= 900 ? "text-destructive" : "text-muted-foreground/40"}`}>
@@ -287,7 +298,7 @@ export function SubmitPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <Label className="text-xs font-medium text-foreground uppercase tracking-wider">
               Tag <span className="text-destructive">*</span>
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -300,7 +311,7 @@ export function SubmitPage() {
                     "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                     tag === t
                       ? `${TAG_COLORS[t]} border-current/20 ring-1 ring-current/20`
-                      : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
+                      : "border-border text-foreground/70 hover:border-border hover:text-foreground"
                   )}
                 >
                   {t}
@@ -310,11 +321,11 @@ export function SubmitPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <Label className="text-xs font-medium text-foreground uppercase tracking-wider">
               Media (optional)
             </Label>
             {mediaPreview ? (
-              <div className="relative rounded-lg overflow-hidden border border-border/50">
+              <div className="relative rounded-lg overflow-hidden border border-border">
                 {isVideo ? (
                   <video src={mediaPreview} className="w-full max-h-64 object-contain bg-black" controls />
                 ) : (
@@ -332,7 +343,7 @@ export function SubmitPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border border-dashed border-border/60 rounded-lg py-8 flex flex-col items-center gap-2 text-muted-foreground hover:border-border hover:text-foreground transition-colors"
+                className="w-full border border-dashed border-border rounded-lg py-8 flex flex-col items-center gap-2 text-foreground/70 hover:border-foreground/50 hover:text-foreground transition-colors"
               >
                 <ImageIcon className="size-5" />
                 <span className="text-xs">Click to upload image or video</span>
@@ -350,7 +361,7 @@ export function SubmitPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="author" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <Label htmlFor="author" className="text-xs font-medium text-foreground uppercase tracking-wider">
               Your name (optional)
             </Label>
             <Input
@@ -393,6 +404,22 @@ export function SubmitPage() {
         </form>
       </main>
       <Footer />
+
+      <AlertDialog open={moderationModalOpen} onOpenChange={setModerationModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Content Blocked</AlertDialogTitle>
+            <AlertDialogDescription>
+              This post contains inappropriate content. Please make a new appropriate post.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setModerationModalOpen(false)}>
+              Okay, Got it!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -125,7 +125,7 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <>
-      <article className="border border-border rounded-lg px-4 py-3 bg-card hover:bg-card/80 transition-colors">
+      <article className="border border-border rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors">
         <Link to={`/post/${post.id}`} className="block group">
           <div className="flex items-center gap-2 mb-1.5">
             <Badge
@@ -139,7 +139,7 @@ export function PostCard({ post }: PostCardProps) {
             {post.title}
           </h2>
           {post.description && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+            <p className="mt-1 text-xs text-foreground/80 line-clamp-1">
               {post.description}
             </p>
           )}
@@ -173,9 +173,9 @@ export function PostCard({ post }: PostCardProps) {
               {author}
             </button>
             <span className="text-muted-foreground/40">·</span>
-            <span className="text-muted-foreground/70">{timeAgo}</span>
+            <span className="text-foreground/70">{timeAgo}</span>
             <span className="text-muted-foreground/40">·</span>
-            <Link to={`/post/${post.id}`} className="flex items-center gap-1 text-muted-foreground/70 hover:text-foreground transition-colors">
+            <Link to={`/post/${post.id}`} className="flex items-center gap-1 text-foreground/70 hover:text-foreground transition-colors">
               <MessageSquare className="size-3" />
               {post.comment_count ?? 0}
             </Link>

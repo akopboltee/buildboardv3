@@ -42,7 +42,7 @@ export function Header() {
     <header className="border-b border-border sticky top-0 z-10 bg-background">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
         <TooltipProvider>
-          <Link to="/" className="text-sm font-bold tracking-tight text-foreground shrink-0">
+          <Link to="/" className="text-xl font-bold tracking-tight text-foreground shrink-0">
             BuildBoard
           </Link>
 
@@ -53,7 +53,7 @@ export function Header() {
               placeholder="Search users, projects, posts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 text-sm bg-muted/50 border-border/50"
+              className="h-9 text-sm bg-background border-border"
             />
           </form>
 
