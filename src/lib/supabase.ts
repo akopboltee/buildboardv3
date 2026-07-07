@@ -22,6 +22,7 @@ export interface Post {
   show_anonymous?: boolean
   guest_id?: string
   flagged?: boolean
+  project_id?: string | null
 }
 
 export interface Comment {
@@ -77,4 +78,17 @@ export interface Report {
   description?: string
   status: 'pending' | 'reviewed' | 'resolved'
   created_at: string
+}
+
+export interface Project {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  website_url: string | null
+  repo_url: string | null
+  cover_image: string | null
+  tag: string
+  created_at: string
+  updated_at: string
 }

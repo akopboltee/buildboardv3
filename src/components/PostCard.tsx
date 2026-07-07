@@ -125,7 +125,7 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <>
-      <article className="border border-border rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors">
+      <article className="border border-border border-opacity-100 rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors shadow-sm">
         <Link to={`/post/${post.id}`} className="block group">
           <div className="flex items-center gap-2 mb-1.5">
             <Badge

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Plus, User, LogOut, LayoutGrid, Settings, Paintbrush, Check, Shield, TriangleAlert as AlertCircle } from "lucide-react"
+import { Plus, User, LogOut, LayoutGrid, Settings, Paintbrush, Check, Shield, TriangleAlert as AlertCircle, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -172,6 +172,12 @@ export function Header() {
                     <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
                       <LayoutGrid className="size-3.5" />
                       My posts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/projects" className="flex items-center gap-2 cursor-pointer">
+                      <FolderOpen className="size-3.5" />
+                      My projects
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

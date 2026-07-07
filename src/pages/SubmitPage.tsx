@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ArrowLeft, X, Image as ImageIcon, Loader as Loader2, Clock } from "lucide-react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { ArrowLeft, X, Image as ImageIcon, Loader as Loader2, Clock, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
-import { supabase, TAGS, type Tag } from "@/lib/supabase"
+import { supabase, TAGS, type Tag, type Project } from "@/lib/supabase"
 import { TAG_COLORS } from "@/lib/tag-colors"
 import { useAuth } from "@/hooks/use-auth"
 import { useRateLimit, formatRateLimitMessage } from "@/hooks/use-rate-limit"
@@ -27,6 +34,7 @@ import { cn } from "@/lib/utils"
 
 export function SubmitPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, displayName } = useAuth()
   const { limited: rateLimited, getTimeUntilReset, checkRateLimit } = useRateLimit()
 
@@ -37,9 +45,14 @@ export function SubmitPage() {
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [validating, setValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mediaError, setMediaError] = useState<string | null>(null)
   const [moderationModalOpen, setModerationModalOpen] = useState(false)
+
+  // Projects
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("")
 
   // Validation states
   const [titleError, setTitleError] = useState<string | null>(null)
@@ -55,6 +68,25 @@ export function SubmitPage() {
   useEffect(() => {
     if (displayName) setAuthorName(displayName)
   }, [displayName])
+
+  // Fetch user's projects
+  useEffect(() => {
+    if (!user) return
+    const preselectedProject = searchParams.get("project")
+    supabase
+      .from("projects")
+      .select("id, title")
+      .eq("user_id", user.id)
+      .order("title")
+      .then(({ data }) => {
+        if (data) {
+          setProjects(data as Project[])
+          if (preselectedProject && data.some(p => p.id === preselectedProject)) {
+            setSelectedProjectId(preselectedProject)
+          }
+        }
+      })
+  }, [user, searchParams])
 
   // Validation on change
   useEffect(() => {
@@ -102,10 +134,15 @@ export function SubmitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
+    // Immediate feedback
+    setValidating(true)
+    setError(null)
+
     // Validate
     const titleResult = sanitizeTitle(title)
     if (!titleResult.valid) {
       setTitleError(titleResult.error ?? null)
+      setValidating(false)
       return
     }
 
@@ -113,6 +150,7 @@ export function SubmitPage() {
 
     if (rateLimited) {
       setError(formatRateLimitMessage("post", getTimeUntilReset()))
+      setValidating(false)
       return
     }
 
@@ -120,6 +158,7 @@ export function SubmitPage() {
     const rateCheck = await checkRateLimit("post")
     if (!rateCheck.allowed) {
       setError(formatRateLimitMessage("post", getTimeUntilReset()))
+      setValidating(false)
       return
     }
 
@@ -153,12 +192,12 @@ export function SubmitPage() {
 
     if (!modResult.allowed) {
       setModerationModalOpen(true)
-      setSubmitting(false)
+      setValidating(false)
       return
     }
 
     setSubmitting(true)
-    setError(null)
+    setValidating(false)
 
     let mediaUrl: string | null = null
 
@@ -200,6 +239,7 @@ export function SubmitPage() {
         show_anonymous: showAnonymous,
         guest_id: user ? null : identifier,
         flagged: modResult.flagged || false,
+        project_id: selectedProjectId || null,
       })
       .select()
       .single()
@@ -320,6 +360,30 @@ export function SubmitPage() {
             </div>
           </div>
 
+          {projects.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-foreground uppercase tracking-wider">
+                Project (optional)
+              </Label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger className="h-9 text-sm bg-transparent">
+                  <SelectValue placeholder="Add to a project..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No project</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-1.5">
+                        <FolderOpen className="size-3" />
+                        {p.title}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-xs font-medium text-foreground uppercase tracking-wider">
               Media (optional)
@@ -383,10 +447,15 @@ export function SubmitPage() {
           <div className="flex items-center gap-3 pt-2">
             <Button
               type="submit"
-              disabled={submitting || !isValid}
+              disabled={submitting || validating || !isValid}
               className="h-9 text-sm"
             >
-              {submitting ? (
+              {validating ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin mr-2" />
+                  Validating...
+                </>
+              ) : submitting ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin mr-2" />
                   Publishing...

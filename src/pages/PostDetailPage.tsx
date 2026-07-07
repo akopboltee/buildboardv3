@@ -43,6 +43,7 @@ export function PostDetailPage() {
   const [commentContent, setCommentContent] = useState("")
   const [commentAuthor, setCommentAuthor] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [validating, setValidating] = useState(false)
   const [commentError, setCommentError] = useState<string | null>(null)
   const [commentValidationError, setCommentValidationError] = useState<string | null>(null)
 
@@ -141,18 +142,27 @@ export function PostDetailPage() {
   async function handleCommentSubmit(e: React.FormEvent) {
     e.preventDefault()
 
+    // Immediate feedback
+    setValidating(true)
+    setCommentError(null)
+
     const contentResult = sanitizeComment(commentContent)
     if (!contentResult.valid) {
       setCommentValidationError(contentResult.error ?? null)
+      setValidating(false)
       return
     }
 
-    if (!id || commentRateLimited) return
+    if (!id || commentRateLimited) {
+      setValidating(false)
+      return
+    }
 
     // Check rate limit again
     const rateCheck = await checkRateLimit("comment")
     if (!rateCheck.allowed) {
       setCommentError(formatRateLimitMessage("comment", getTimeUntilReset()))
+      setValidating(false)
       return
     }
 
@@ -174,10 +184,12 @@ export function PostDetailPage() {
 
     if (!modResult.allowed) {
       setCommentError(modResult.reason || "Content violates our guidelines")
+      setValidating(false)
       return
     }
 
     setSubmitting(true)
+    setValidating(false)
     setCommentError(null)
 
     // Get user's privacy preference
@@ -487,10 +499,15 @@ export function PostDetailPage() {
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting || !commentContent.trim() || !!commentValidationError || commentRateLimited}
+                disabled={submitting || validating || !commentContent.trim() || !!commentValidationError || commentRateLimited}
                 className="h-8 text-xs"
               >
-                {submitting ? (
+                {validating ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin mr-1.5" />
+                    Checking...
+                  </>
+                ) : submitting ? (
                   <>
                     <Loader2 className="size-3 animate-spin mr-1.5" />
                     Posting...
