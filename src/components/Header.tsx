@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Plus, User, LogOut, LayoutGrid, Settings, Paintbrush, Check } from "lucide-react"
+import { Plus, User, LogOut, LayoutGrid, Settings, Paintbrush, Check, Shield, TriangleAlert as AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -16,16 +16,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useAuth } from "@/hooks/use-auth"
 import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
 export function Header() {
-  const { user, displayName, signOut } = useAuth()
+  const { user, displayName, signOut, profile } = useAuth()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [themeOpen, setThemeOpen] = useState(false)
+  const [warningModalOpen, setWarningModalOpen] = useState(false)
+
+  const isAdmin = profile?.role === "superadmin"
+  const hasWarnings = profile && profile.warning_count > 0
 
   const initials = displayName
     ? displayName.slice(0, 2).toUpperCase()
@@ -105,6 +118,24 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Warning Badge */}
+            {hasWarnings && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setWarningModalOpen(true)}
+                    className="size-9 rounded-lg flex items-center justify-center text-orange-500 hover:bg-orange-500/10 transition-colors relative"
+                  >
+                    <AlertCircle className="size-4" />
+                    <span className="absolute -top-1 -right-1 size-4 rounded-full bg-orange-500 text-[10px] font-bold text-white flex items-center justify-center">
+                      {profile?.warning_count}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">You have {profile?.warning_count} warning(s)</TooltipContent>
+              </Tooltip>
+            )}
+
             {/* Share Button */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -149,6 +180,14 @@ export function Header() {
                       Settings
                     </Link>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center gap-2 cursor-pointer text-yellow-600">
+                        <Shield className="size-3.5" />
+                        Admin Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={signOut}
@@ -170,6 +209,29 @@ export function Header() {
           </div>
         </TooltipProvider>
       </div>
+
+      {/* Warning Modal */}
+      <AlertDialog open={warningModalOpen} onOpenChange={setWarningModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-500">
+              <AlertCircle className="size-5" />
+              Account Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have received {profile?.warning_count} warning(s) for violating our community guidelines.
+              {profile?.warning_count && profile.warning_count >= 2 && (
+                <span className="block mt-2 text-destructive font-medium">
+                  Warning: After 3 warnings, your account will be automatically banned.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Okay, I understand</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   )
 }

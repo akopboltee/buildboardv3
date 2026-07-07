@@ -2,10 +2,19 @@ import * as React from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
+type UserProfile = {
+  role: string
+  is_banned: boolean
+  is_shadowbanned: boolean
+  warning_count: number
+  ban_until: string | null
+}
+
 type AuthContextValue = {
   user: User | null
   loading: boolean
   displayName: string
+  profile: UserProfile | null
   signOut: () => Promise<void>
 }
 
@@ -13,6 +22,7 @@ const AuthContext = React.createContext<AuthContextValue>({
   user: null,
   loading: true,
   displayName: "",
+  profile: null,
   signOut: async () => {},
 })
 
@@ -37,7 +47,38 @@ function isSessionExpired(): boolean {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null)
+  const [profile, setProfile] = React.useState<UserProfile | null>(null)
   const [loading, setLoading] = React.useState(true)
+
+  // Fetch profile data
+  const fetchProfile = React.useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("role, is_banned, is_shadowbanned, warning_count, ban_until")
+      .eq("user_id", userId)
+      .maybeSingle()
+
+    if (data) {
+      setProfile(data as UserProfile)
+
+      // Check if user is banned
+      if (data.is_banned) {
+        // Check if temp ban has expired
+        if (data.ban_until && new Date(data.ban_until as string) < new Date()) {
+          // Ban expired, update profile
+          await supabase
+            .from("profiles")
+            .update({ is_banned: false, ban_until: null, banned_at: null })
+            .eq("user_id", userId)
+          setProfile((prev) => prev ? { ...prev, is_banned: false, ban_until: null } : null)
+        } else {
+          // User is banned, sign them out
+          await supabase.auth.signOut()
+          return
+        }
+      }
+    }
+  }, [])
 
   React.useEffect(() => {
     // Check session expiration on mount
@@ -50,21 +91,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null)
-      if (data.session) {
+      if (data.session?.user) {
         updateActivity()
+        fetchProfile(data.session.user.id)
       }
       setLoading(false)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session) {
+      if (session?.user) {
         updateActivity()
+        fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
       }
     })
 
     return () => listener.subscription.unsubscribe()
-  }, [])
+  }, [fetchProfile])
 
   // Update activity on user interaction
   React.useEffect(() => {
@@ -106,8 +151,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const displayName = user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? ""
 
   const value = React.useMemo(
-    () => ({ user, loading, displayName, signOut }),
-    [user, loading, displayName, signOut]
+    () => ({ user, loading, displayName, profile, signOut }),
+    [user, loading, displayName, profile, signOut]
   )
 
   return React.createElement(AuthContext.Provider, { value }, children)

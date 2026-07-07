@@ -10,6 +10,7 @@ import { SearchPage } from "@/pages/SearchPage"
 import { AboutPage } from "@/pages/AboutPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage"
+import { AdminDashboard } from "@/pages/AdminDashboard"
 import { TermsPage } from "@/pages/TermsPage"
 import { PrivacyPage } from "@/pages/PrivacyPage"
 import { CookiesPage } from "@/pages/CookiesPage"
@@ -32,6 +33,7 @@ export function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
