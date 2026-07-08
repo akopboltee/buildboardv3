@@ -15,6 +15,7 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -49,6 +50,7 @@ export function SubmitPage() {
   const [error, setError] = useState<string | null>(null)
   const [mediaError, setMediaError] = useState<string | null>(null)
   const [moderationModalOpen, setModerationModalOpen] = useState(false)
+  const [signInRequiredOpen, setSignInRequiredOpen] = useState(false)
 
   // Projects
   const [projects, setProjects] = useState<Project[]>([])
@@ -66,8 +68,14 @@ export function SubmitPage() {
   }, [checkRateLimit])
 
   useEffect(() => {
-    if (displayName) setAuthorName(displayName)
-  }, [displayName])
+    // For logged-in users, use their display name
+    // For anonymous users, always use "Anonymous"
+    if (user && displayName) {
+      setAuthorName(displayName)
+    } else if (!user) {
+      setAuthorName("Anonymous")
+    }
+  }, [user, displayName])
 
   // Fetch user's projects
   useEffect(() => {
@@ -110,6 +118,13 @@ export function SubmitPage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Require auth for media uploads
+    if (!user) {
+      setSignInRequiredOpen(true)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
 
     setMediaError(null)
 
@@ -426,19 +441,19 @@ export function SubmitPage() {
 
           <div className="space-y-2">
             <Label htmlFor="author" className="text-xs font-medium text-foreground uppercase tracking-wider">
-              Your name (optional)
+              Your name
             </Label>
             <Input
               id="author"
-              placeholder="Anonymous"
               value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
+              onChange={(e) => user && setAuthorName(e.target.value)}
               className="bg-transparent h-10 text-sm"
               maxLength={64}
-              readOnly={!!user}
+              readOnly={!user}
+              disabled={!user}
             />
-            {user && (
-              <p className="text-xs text-muted-foreground">Posting as your account</p>
+            {!user && (
+              <p className="text-xs text-muted-foreground">Sign in to post with your name</p>
             )}
           </div>
 
@@ -486,6 +501,31 @@ export function SubmitPage() {
             <AlertDialogAction onClick={() => setModerationModalOpen(false)}>
               Okay, Got it!
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sign In Required Modal */}
+      <AlertDialog open={signInRequiredOpen} onOpenChange={setSignInRequiredOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign in required</AlertDialogTitle>
+            <AlertDialogDescription>
+              Uploading images and videos is available only for registered users. Create a free account or sign in to share media with your posts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogAction asChild>
+              <Link to="/auth" className="w-full sm:w-auto">
+                <Button className="w-full">Sign In</Button>
+              </Link>
+            </AlertDialogAction>
+            <AlertDialogAction asChild>
+              <Link to="/auth?tab=signup" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full">Create Account</Button>
+              </Link>
+            </AlertDialogAction>
+            <AlertDialogCancel className="mt-2 sm:mt-0">Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

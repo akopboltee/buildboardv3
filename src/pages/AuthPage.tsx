@@ -314,7 +314,7 @@ export function AuthPage() {
           <TabsContent value="signin">
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="signin-email" className="text-xs text-muted-foreground">
+                <Label htmlFor="signin-email" className="text-xs text-foreground/80">
                   Email
                 </Label>
                 <Input
@@ -329,7 +329,7 @@ export function AuthPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="signin-password" className="text-xs text-muted-foreground">
+                <Label htmlFor="signin-password" className="text-xs text-foreground/80">
                   Password
                 </Label>
                 <div className="relative">
@@ -395,10 +395,10 @@ export function AuthPage() {
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="signup-name" className="text-xs text-muted-foreground">
+                    <Label htmlFor="signup-name" className="text-xs text-foreground/80">
                       Username <span className="text-destructive">*</span>
                     </Label>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-foreground/60">
                       {signUpName.length}/20
                     </span>
                   </div>
@@ -422,7 +422,7 @@ export function AuthPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-email" className="text-xs text-muted-foreground">
+                  <Label htmlFor="signup-email" className="text-xs text-foreground/80">
                     Email <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -444,7 +444,7 @@ export function AuthPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-password" className="text-xs text-muted-foreground">
+                  <Label htmlFor="signup-password" className="text-xs text-foreground/80">
                     Password <span className="text-destructive">*</span>
                   </Label>
                   <div className="relative">
@@ -499,7 +499,7 @@ export function AuthPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-confirm" className="text-xs text-muted-foreground">
+                  <Label htmlFor="signup-confirm" className="text-xs text-foreground/80">
                     Confirm password <span className="text-destructive">*</span>
                   </Label>
                   <div className="relative">
