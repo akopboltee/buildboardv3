@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useSearchParams, Link } from "react-router-dom"
-import { ArrowLeft, Search as SearchIcon, Users, FileText } from "lucide-react"
+import { ArrowLeft, Search as SearchIcon, Users, FileText, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -8,11 +8,11 @@ import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { PostCard } from "@/components/PostCard"
 import { ProfileModal } from "@/components/ProfileModal"
-import { supabase, type Post, type Profile } from "@/lib/supabase"
+import { supabase, type Post, type Profile, type Project } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 
-type SearchTab = "posts" | "people"
+type SearchTab = "posts" | "people" | "projects"
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -23,6 +23,7 @@ export function SearchPage() {
   const [searchQuery, setSearchQuery] = useState(query)
   const [posts, setPosts] = useState<Post[]>([])
   const [people, setPeople] = useState<Profile[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(false)
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set())
 
@@ -46,6 +47,7 @@ export function SearchPage() {
     if (!query.trim()) {
       setPosts([])
       setPeople([])
+      setProjects([])
       return
     }
 
@@ -88,7 +90,7 @@ export function SearchPage() {
           }))
         )
       }
-    } else {
+    } else if (tab === "people") {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -100,6 +102,18 @@ export function SearchPage() {
         // Filter out blocked users
         const filtered = data.filter((p) => !blockedIds.has(p.user_id))
         setPeople(filtered)
+      }
+    } else if (tab === "projects") {
+      // Search projects by title or description
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+        .order("updated_at", { ascending: false })
+        .limit(30)
+
+      if (!error && data) {
+        setProjects(data as Project[])
       }
     }
 
@@ -174,6 +188,18 @@ export function SearchPage() {
               <Users className="size-4" />
               People
             </button>
+            <button
+              onClick={() => switchTab("projects")}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 text-sm transition-colors border-b-2",
+                tab === "projects"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <FolderOpen className="size-4" />
+              Projects
+            </button>
           </div>
         )}
 
@@ -201,7 +227,7 @@ export function SearchPage() {
                 ))}
               </div>
             )
-          ) : (
+          ) : tab === "people" ? (
             people.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground text-sm">No people found for "{query}"</p>
@@ -210,6 +236,35 @@ export function SearchPage() {
               <div className="grid gap-3">
                 {people.map((profile) => (
                   <PeopleResult key={profile.id} profile={profile} />
+                ))}
+              </div>
+            )
+          ) : (
+            projects.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-sm">No projects found for "{query}"</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {projects.map((project) => (
+                  <Link
+                    key={project.id}
+                    to={`/profile/${project.user_id}`}
+                    className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FolderOpen className="size-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-foreground truncate">{project.title}</h3>
+                        {project.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
+                        )}
+                        {project.website_url && (
+                          <p className="text-xs text-blue-600 truncate mt-2">{project.website_url}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             )

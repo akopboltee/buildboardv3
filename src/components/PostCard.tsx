@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { MessageSquare, Sparkles, Loader as Loader2, MoveVertical as MoreVertical } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,9 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ProfileModal } from "@/components/ProfileModal"
 import { ReportModal } from "@/components/ReportModal"
-import type { Post, Profile } from "@/lib/supabase"
+import type { Post } from "@/lib/supabase"
 import { TAG_COLORS } from "@/lib/tag-colors"
 import { supabase } from "@/lib/supabase"
 import { getSignedUrl } from "@/lib/media-upload"
@@ -30,6 +29,7 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const author = post.show_anonymous ? "Anonymous" : (post.author_name?.trim() || "Anonymous")
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
 
@@ -39,9 +39,6 @@ export function PostCard({ post }: PostCardProps) {
   const [explainError, setExplainError] = useState<string | null>(null)
 
   const [signedMediaUrl, setSignedMediaUrl] = useState<string | null>(null)
-
-  const [profileModalOpen, setProfileModalOpen] = useState(false)
-  const [authorProfile, setAuthorProfile] = useState<Profile | null>(null)
 
   const [reportOpen, setReportOpen] = useState(false)
   const [hasBlocked, setHasBlocked] = useState(false)
@@ -98,16 +95,8 @@ export function PostCard({ post }: PostCardProps) {
 
     if (!post.user_id || post.show_anonymous) return
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", post.user_id)
-      .maybeSingle()
-
-    if (profile) {
-      setAuthorProfile(profile)
-      setProfileModalOpen(true)
-    }
+    // Navigate to public profile page
+    navigate(`/profile/${post.user_id}`)
   }
 
   async function handleBlock() {
@@ -125,7 +114,7 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <>
-      <article className="border border-border border-opacity-100 rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors shadow-sm">
+      <article className="border border-foreground/20 rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors shadow-sm">
         <Link to={`/post/${post.id}`} className="block group">
           <div className="flex items-center gap-2 mb-1.5">
             <Badge
@@ -263,12 +252,6 @@ export function PostCard({ post }: PostCardProps) {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ProfileModal
-        open={profileModalOpen}
-        onOpenChange={setProfileModalOpen}
-        profile={authorProfile}
-      />
 
       <ReportModal
         open={reportOpen}

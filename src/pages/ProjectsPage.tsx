@@ -38,6 +38,7 @@ export function ProjectsPage() {
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [deleteProject, setDeleteProject] = useState<Project | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Form state
   const [title, setTitle] = useState("")
@@ -92,15 +93,24 @@ export function ProjectsPage() {
   }
 
   async function handleSave() {
-    if (!title.trim() || !user) return
+    if (!title.trim() || !user) {
+      setSaveError("Title is required")
+      return
+    }
     setSaving(true)
+    setSaveError(null)
 
     let coverImageUrl = editProject?.cover_image || null
 
     if (coverFile) {
-      const uploadResult = await uploadMedia(coverFile, user.id, "posts")
-      if (uploadResult.success && uploadResult.url) {
-        coverImageUrl = uploadResult.url
+      try {
+        const uploadResult = await uploadMedia(coverFile, user.id, "posts")
+        if (uploadResult.success && uploadResult.url) {
+          coverImageUrl = uploadResult.url
+        }
+      } catch (err) {
+        console.error("Upload error:", err)
+        // Continue without image
       }
     }
 
@@ -134,6 +144,7 @@ export function ProjectsPage() {
 
     if (error) {
       console.error("Project save error:", error)
+      setSaveError(error.message || "Failed to save project")
       setSaving(false)
       return
     }
@@ -313,6 +324,10 @@ export function ProjectsPage() {
                 {saving ? <Loader2 className="size-4 animate-spin" /> : editProject ? "Save" : "Create"}
               </Button>
             </div>
+
+            {saveError && (
+              <p className="text-xs text-destructive">{saveError}</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
