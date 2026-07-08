@@ -14,6 +14,28 @@ interface ModerationResult {
   categories?: string[];
 }
 
+// Hard-coded banned words as fallback (always checked first)
+// Only include actual slurs/hate speech, NOT identity terms like "gay" or "lesbian"
+// that could be used positively (e.g., "building a gay rights app")
+const HARDCODED_BANNED_WORDS = [
+  // Racial slurs
+  "nigga", "nigger", "n*gga", "n*gger",
+  "kike", "chink", "spic", "wetback",
+  // Anti-LGBTQ slurs
+  "fag", "faggot", "f*ggot", "dyke", "tranny", "shemale",
+  // Ableist slurs
+  "retard", "r*tard", "retarded",
+  // Gender/sexual insults
+  "cunt", "c*nt", "whore", "slut",
+  // Hate symbols/figures
+  "nazi", "hitler", "kkk", "white power",
+  // Violence/self-harm encouragement
+  "kill yourself", "kys", "go kill yourself",
+  // Child exploitation
+  "pedophile", "pedo", "incest",
+  "child porn", "cp",
+];
+
 const REJECT_CATEGORIES = [
   "hate",
   "hate/threatening",
@@ -35,44 +57,70 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { content, imageData } = body;
 
+    // Step 1: Check hard-coded banned words FIRST (no DB, no API needed)
+    if (content?.trim()) {
+      const lowerContent = content.toLowerCase();
+      const matchedHardcoded = HARDCODED_BANNED_WORDS.find((word) =>
+        lowerContent.includes(word.toLowerCase())
+      );
+
+      if (matchedHardcoded) {
+        console.log("Blocked by hardcoded word:", matchedHardcoded);
+        return new Response(JSON.stringify({
+          allowed: false,
+          flagged: false,
+          reason: "Your content violates our community guidelines. Please revise it."
+        } as ModerationResult), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Step 2: Try database banned words
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check banned words first (no API cost)
     if (content?.trim()) {
-      const { data: bannedWords } = await supabase
-        .from("banned_words")
-        .select("word")
-        .eq("is_active", true);
+      try {
+        const { data: bannedWords, error } = await supabase
+          .from("banned_words")
+          .select("word")
+          .eq("is_active", true);
 
-      if (bannedWords && bannedWords.length > 0) {
-        const lowerContent = content.toLowerCase();
-        const matchedWord = bannedWords.find((w) =>
-          lowerContent.includes(w.word.toLowerCase())
-        );
+        if (!error && bannedWords && bannedWords.length > 0) {
+          const lowerContent = content.toLowerCase();
+          const matchedWord = bannedWords.find((w) =>
+            lowerContent.includes(w.word.toLowerCase())
+          );
 
-        if (matchedWord) {
-          return new Response(JSON.stringify({
-            allowed: false,
-            flagged: false,
-            reason: "Your content violates our community guidelines. Please revise it."
-          } as ModerationResult), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          if (matchedWord) {
+            console.log("Blocked by DB word:", matchedWord.word);
+            return new Response(JSON.stringify({
+              allowed: false,
+              flagged: false,
+              reason: "Your content violates our community guidelines. Please revise it."
+            } as ModerationResult), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
+      } catch (dbError) {
+        console.error("DB banned words check failed:", dbError);
+        // Continue to OpenAI check
       }
     }
 
-    // Check OpenAI Moderation API if configured
+    // Step 3: Check OpenAI Moderation API if configured
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      // No API key, allow content (fail open)
       console.error("OPENAI_API_KEY not configured in edge function secrets");
+      // Fail closed - reject content if we can't moderate
       return new Response(JSON.stringify({
-        allowed: true,
-        flagged: false
+        allowed: false,
+        flagged: false,
+        reason: "Content moderation is temporarily unavailable. Please try again later."
       } as ModerationResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -121,10 +169,11 @@ Deno.serve(async (req: Request) => {
 
     if (!moderationRes.ok) {
       console.error("OpenAI Moderation API error:", await moderationRes.text());
-      // Fail open - allow content if API unavailable
+      // Fail closed
       return new Response(JSON.stringify({
-        allowed: true,
-        flagged: false
+        allowed: false,
+        flagged: false,
+        reason: "Content moderation is temporarily unavailable. Please try again later."
       } as ModerationResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -140,7 +189,6 @@ Deno.serve(async (req: Request) => {
     for (const result of results) {
       if (result.flagged) {
         const categories = result.categories || {};
-        const categoryScores = result.category_scores || result.category_applied_input_types || {};
 
         for (const category of REJECT_CATEGORIES) {
           if (categories[category] === true) {
@@ -173,7 +221,9 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("Moderation error:", error);
     return new Response(JSON.stringify({
-      error: "Moderation check failed"
+      allowed: false,
+      flagged: false,
+      reason: "Content moderation failed. Please try again."
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

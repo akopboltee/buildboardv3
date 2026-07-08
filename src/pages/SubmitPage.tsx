@@ -68,11 +68,12 @@ export function SubmitPage() {
   }, [checkRateLimit])
 
   useEffect(() => {
-    // For logged-in users, use their display name
-    // For anonymous users, always use "Anonymous"
-    if (user && displayName) {
-      setAuthorName(displayName)
-    } else if (!user) {
+    // Always set author name based on user status
+    // For logged-in users: use their display name from profile
+    // For anonymous users: always "Anonymous"
+    if (user) {
+      setAuthorName(displayName || "Anonymous")
+    } else {
       setAuthorName("Anonymous")
     }
   }, [user, displayName])
@@ -446,15 +447,14 @@ export function SubmitPage() {
             <Input
               id="author"
               value={authorName}
-              onChange={(e) => user && setAuthorName(e.target.value)}
               className="bg-transparent h-10 text-sm"
               maxLength={64}
-              readOnly={!user}
-              disabled={!user}
+              readOnly
+              disabled
             />
-            {!user && (
-              <p className="text-xs text-muted-foreground">Sign in to post with your name</p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {user ? "Posting with your account name" : "Sign in to post with your name"}
+            </p>
           </div>
 
           {error && <p className="text-xs text-destructive">{error}</p>}
@@ -515,17 +515,13 @@ export function SubmitPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-            <AlertDialogAction asChild>
-              <Link to="/auth" className="w-full sm:w-auto">
-                <Button className="w-full">Sign In</Button>
-              </Link>
-            </AlertDialogAction>
-            <AlertDialogAction asChild>
-              <Link to="/auth?tab=signup" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full">Create Account</Button>
-              </Link>
-            </AlertDialogAction>
-            <AlertDialogCancel className="mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+            <Button asChild className="w-full sm:w-auto">
+              <Link to="/auth" onClick={() => setSignInRequiredOpen(false)}>Sign In</Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link to="/auth?tab=signup" onClick={() => setSignInRequiredOpen(false)}>Create Account</Link>
+            </Button>
+            <AlertDialogCancel className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

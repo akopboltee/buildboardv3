@@ -92,20 +92,21 @@ export function ProjectsPage() {
   }
 
   async function handleSave() {
-    if (!title.trim()) return
+    if (!title.trim() || !user) return
     setSaving(true)
 
     let coverImageUrl = editProject?.cover_image || null
 
     if (coverFile) {
-      const uploadResult = await uploadMedia(coverFile, user!.id, "posts")
+      const uploadResult = await uploadMedia(coverFile, user.id, "posts")
       if (uploadResult.success && uploadResult.url) {
         coverImageUrl = uploadResult.url
       }
     }
 
+    let error = null
     if (editProject) {
-      await supabase
+      const result = await supabase
         .from("projects")
         .update({
           title: title.trim(),
@@ -117,9 +118,10 @@ export function ProjectsPage() {
           updated_at: new Date().toISOString(),
         })
         .eq("id", editProject.id)
+      error = result.error
     } else {
-      await supabase.from("projects").insert({
-        user_id: user!.id,
+      const result = await supabase.from("projects").insert({
+        user_id: user.id,
         title: title.trim(),
         description: description.trim() || null,
         website_url: websiteUrl.trim() || null,
@@ -127,6 +129,13 @@ export function ProjectsPage() {
         tag,
         cover_image: coverImageUrl,
       })
+      error = result.error
+    }
+
+    if (error) {
+      console.error("Project save error:", error)
+      setSaving(false)
+      return
     }
 
     setSaving(false)
