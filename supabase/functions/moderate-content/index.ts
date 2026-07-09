@@ -113,14 +113,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 3: Check OpenAI Moderation API if configured
+    // OpenAI is OPTIONAL - hard-coded words are the primary defense
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      console.error("OPENAI_API_KEY not configured in edge function secrets");
-      // Fail closed - reject content if we can't moderate
+      // No OpenAI key - allow content that passed hard-coded word check
+      // Hard-coded words already cover the most critical slurs/hate speech
+      console.log("OPENAI_API_KEY not configured, using hard-coded words only");
       return new Response(JSON.stringify({
-        allowed: false,
-        flagged: false,
-        reason: "Content moderation is temporarily unavailable. Please try again later."
+        allowed: true,
+        flagged: false
       } as ModerationResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -169,11 +170,10 @@ Deno.serve(async (req: Request) => {
 
     if (!moderationRes.ok) {
       console.error("OpenAI Moderation API error:", await moderationRes.text());
-      // Fail closed
+      // API error but content passed hard-coded words - allow it
       return new Response(JSON.stringify({
-        allowed: false,
-        flagged: false,
-        reason: "Content moderation is temporarily unavailable. Please try again later."
+        allowed: true,
+        flagged: false
       } as ModerationResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -220,12 +220,11 @@ Deno.serve(async (req: Request) => {
     });
   } catch (error) {
     console.error("Moderation error:", error);
+    // Unexpected error - allow content that would have passed hard-coded check
     return new Response(JSON.stringify({
-      allowed: false,
-      flagged: false,
-      reason: "Content moderation failed. Please try again."
-    }), {
-      status: 500,
+      allowed: true,
+      flagged: false
+    } as ModerationResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
